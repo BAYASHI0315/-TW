@@ -2,7 +2,7 @@
 // このファイルは「Firebaseの接続情報だけ」を置く場所です。
 // initializeApp() は src/cloud-sync.js 側で実行します。
 export const firebaseConfig = {
-  apiKey: "AIzaSyAOtjZsmX4oVJxkCcA-N7l5pk-5BwizZCM",
+  apiKey: "AIzaSyAOtjZsmX4oVJxkCcA-N7l5pk-5BwiiZCM",
   authDomain: "kizai-kanri-system.firebaseapp.com",
   projectId: "kizai-kanri-system",
   storageBucket: "kizai-kanri-system.firebasestorage.app",
