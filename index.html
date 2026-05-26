@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Equipment Manager Lite v20.1 Auth Cloud</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.svg" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar no-print">
+    <div>
+      <p class="eyebrow">Equipment Manager Lite / v20.1 Auth Cloud</p>
+      <h1>映像機材 管理・持ち出しチェック</h1>
+      <p class="lead">現場で使いやすい持ち出し・返却チェック、見積書、機材マスターをまとめた軽量版です。</p>
+    </div>
+    <div class="top-actions">
+      <button id="printBtn" class="btn primary">印刷 / PDF保存</button>
+      <button id="exportJsonBtn" class="btn">JSON書き出し</button>
+      <label class="btn file-btn">JSON読込<input id="importJsonInput" type="file" accept="application/json" hidden></label>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar no-print">
+      <button class="nav active" data-view="checkout">持ち出しチェック</button>
+      <button class="nav" data-view="assets">機材マスター</button>
+      <button class="nav" data-view="research">ネット検索補助</button>
+      <button class="nav" data-view="ocr">写真OCR入力</button>
+      <button class="nav" data-view="sets">セット管理</button>
+      <button class="nav" data-view="categories">カテゴリ管理</button>
+      <button class="nav" data-view="rental">レンタル価格表</button>
+      <button class="nav" data-view="cloud">クラウド同期</button>
+      <button class="nav" data-view="tools">データ管理</button>
+    </aside>
+
+    <section class="workspace">
+      <section id="view-checkout" class="view active">
+        <div class="grid two no-print">
+          <div class="panel glass">
+            <div class="panel-head"><h2>案件情報</h2><span class="chip save">Auto Save</span></div>
+            <div class="form-grid">
+              <label>案件名<input id="projectName" placeholder="例：CM撮影 A案件"></label>
+              <label>日程<input id="shootDate" type="date"></label>
+              <label>現場<input id="location" placeholder="例：スタジオ / ロケ地"></label>
+              <label>クライアント<input id="clientName" placeholder="任意"></label>
+              <label class="span2">備考<textarea id="projectNotes" placeholder="搬入時間・注意点・予備メモなど"></textarea></label>
+            </div>
+          </div>
+          <div class="panel glass compact-panel">
+            <div class="panel-head"><h2>絞り込み・表示順</h2><span class="chip">Sort</span></div>
+            <p class="hint">チェックシートは機材マスターの全機材を表示します。カテゴリで絞り込み、セットは上位表示用のソートとして使います。</p>
+            <label>カテゴリで絞り込み<select id="checkoutCategoryFilter"></select></label>
+            <div class="set-mini-block">
+              <p class="hint mini-label">セットを上位表示</p>
+              <div id="setSelector" class="check-grid mini-set-grid"></div>
+            </div>
+            <button id="generateBtn" class="btn primary full">チェックシート更新</button>
+            <button id="clearChecksBtn" class="btn danger ghost full">チェック状態をリセット</button>
+          </div>
+        </div>
+
+        <div id="warnings" class="warnings no-print"></div>
+        <section class="panel print-area">
+          <div class="print-title">
+            <div><p class="eyebrow dark">Checkout / Return Sheet</p><h2>持ち出し・返却チェックシート</h2></div>
+            <div id="printMeta" class="print-meta"></div>
+          </div>
+          <div id="summary" class="summary"></div>
+          <div class="table-wrap">
+            <table class="dense">
+              <thead><tr><th>持出</th><th class="print-only-col">返却</th><th>カテゴリ</th><th>メーカー</th><th>機材</th><th>在庫数</th><th>持出数</th><th>メモ</th><th>管理ID</th></tr></thead>
+              <tbody id="checklistBody"></tbody>
+            </table>
+          </div>
+          <div class="sign-area"><span>積込確認：</span><span>返却確認：</span><span>最終確認：</span></div>
+        </section>
+      </section>
+
+      <section id="view-assets" class="view">
+        <div class="grid two no-print">
+          <div class="panel glass">
+            <div class="panel-head"><h2>機材を追加・編集</h2><span class="chip">Editable</span></div>
+            <div class="form-grid compact">
+              <label>編集対象<select id="assetSelect"></select></label>
+              <label>管理ID<input id="assetId" placeholder="CAM001"></label>
+              <label>メーカー名<input id="assetManufacturer" placeholder="例：Blackmagic Design"></label>
+              <label>機材名<input id="assetName" placeholder="例：ATEM Television Studio 4K Pro"></label>
+              <label>カテゴリ
+                <select id="assetCategorySelect"></select>
+              </label>
+              <label id="assetCategoryCustomWrap" class="hidden">新規カテゴリ
+                <input id="assetCategoryCustom" placeholder="例：配信機材">
+              </label>
+              <label>数量<input id="assetQty" type="number" min="0" value="1"></label>
+              <label>状態<select id="assetStatus"><option>OK</option><option>使用中</option><option>要確認</option><option>NG</option><option>紛失</option></select></label>
+              <label>新品価格<input id="assetNewPrice" type="number" min="0"></label>
+              <label>レンタル/日<input id="assetRentalDay" type="number" min="0"></label>
+              <label>取扱説明書URL<input id="assetManual"></label>
+              <label>商品画像URL<input id="assetImage"></label>
+              <label>商品ページURL<input id="assetProduct"></label>
+              <label>シリアル<input id="assetSerial"></label>
+              <label class="span2">備考<textarea id="assetNotes"></textarea></label>
+              <label class="inline-check"><input id="assetConsumable" type="checkbox"> 消耗品扱い</label>
+            </div>
+            <div class="button-row"><button id="newAssetBtn" class="btn">新規</button><button id="saveAssetBtn" class="btn primary">保存</button><button id="duplicateAssetBtn" class="btn">複製</button><button id="deleteAssetBtn" class="btn danger ghost">削除</button></div>
+          </div>
+          <div class="panel glass">
+            <div class="panel-head"><h2>機材一覧</h2><span class="chip">Search</span></div>
+            <div class="asset-toolbar">
+              <input id="assetSearch" class="search" placeholder="ID・メーカー・機材名・カテゴリで検索">
+              <select id="assetCategoryFilter"></select>
+              <div class="segmented">
+                <button id="assetCardViewBtn" class="btn small active" type="button">写真表示</button>
+                <button id="assetTableViewBtn" class="btn small" type="button">表表示</button>
+              </div>
+            </div>
+            <div id="assetCards" class="asset-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-research" class="view">
+        <div class="grid two no-print">
+          <div class="panel glass">
+            <div class="panel-head"><h2>ネット検索補助</h2><span class="chip">Semi Auto</span></div>
+            <p class="hint">完全自動入力ではなく、検索候補を開いて確認し、正しいURL・価格を貼り付けて採用する安全設計です。</p>
+            <div class="form-grid compact">
+              <label>検索する機材<select id="researchAssetSelect"></select></label>
+              <label>検索キーワード<input id="researchQuery" placeholder="メーカー名 + 機材名"></label>
+            </div>
+            <div id="searchLinks" class="search-links"></div>
+          </div>
+          <div class="panel glass">
+            <div class="panel-head"><h2>候補を貼り付けて採用</h2><span class="chip save">Apply</span></div>
+            <div class="form-grid compact">
+              <label>取扱説明書URL<input id="candidateManual" placeholder="メーカー公式PDFなど"></label>
+              <label>商品画像URL<input id="candidateImage" placeholder="画像URL"></label>
+              <label>商品ページURL<input id="candidateProduct" placeholder="メーカー/販売店ページ"></label>
+              <label>新品価格<input id="candidateNewPrice" type="number" min="0"></label>
+              <label>レンタル/日<input id="candidateRentalDay" type="number" min="0"></label>
+            </div>
+            <button id="applyCandidateBtn" class="btn primary full">この候補を機材マスターへ反映</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-ocr" class="view">
+        <div class="grid two no-print">
+          <div class="panel glass">
+            <div class="panel-head"><h2>写真OCR入力</h2><span class="chip">iPhone Camera</span></div>
+            <p class="hint">箱・本体ラベル・型番プレート・取説表紙を撮影/選択して、文字を読み取ります。英数字の型番抽出に向いています。</p>
+            <div class="form-grid compact">
+              <label>反映先機材<select id="ocrAssetSelect"></select></label>
+              <label>画像を選択/撮影<input id="ocrImageInput" type="file" accept="image/*" capture="environment"></label>
+            </div>
+            <div class="ocr-preview-wrap"><img id="ocrPreview" class="ocr-preview" alt="OCRプレビュー"></div>
+            <div class="button-row">
+              <button id="runOcrBtn" class="btn primary">OCR実行</button>
+              <button id="clearOcrBtn" class="btn ghost">クリア</button>
+            </div>
+            <div id="ocrProgress" class="ocr-progress">画像を選んでください。</div>
+          </div>
+          <div class="panel glass">
+            <div class="panel-head"><h2>抽出結果・反映</h2><span class="chip save">Apply</span></div>
+            <label>OCR抽出テキスト<textarea id="ocrText" class="ocr-text" placeholder="ここにOCR結果が入ります。手修正もできます。"></textarea></label>
+            <div class="button-row">
+              <button id="analyzeOcrBtn" class="btn">候補を再抽出</button>
+              <button id="sendOcrToResearchBtn" class="btn">検索補助へ送る</button>
+            </div>
+            <div class="ocr-candidates">
+              <div><h3>メーカー候補</h3><div id="ocrMakerCandidates" class="candidate-pills"></div></div>
+              <div><h3>型番/機材名候補</h3><div id="ocrModelCandidates" class="candidate-pills"></div></div>
+            </div>
+            <div class="form-grid compact">
+              <label>メーカー名に反映<input id="ocrApplyManufacturer" placeholder="候補クリックで入力"></label>
+              <label>機材名/型番に反映<input id="ocrApplyName" placeholder="候補クリックで入力"></label>
+              <label>シリアルに反映<input id="ocrApplySerial" placeholder="任意"></label>
+            </div>
+            <button id="applyOcrToAssetBtn" class="btn primary full">反映先機材へ適用</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-sets" class="view">
+        <div class="grid two no-print">
+          <div class="panel glass">
+            <div class="panel-head"><h2>セット追加・編集</h2><span class="chip">Set</span></div>
+            <div class="form-grid compact">
+              <label>編集対象<select id="setEditSelect"></select></label>
+              <label>セット名<input id="setName"></label>
+              <label class="span2">説明<textarea id="setDescription"></textarea></label>
+              <label class="span2">含める機材
+                <div class="set-view-toolbar">
+                  <span class="hint">表示形式</span>
+                  <div class="segmented">
+                    <button id="setListViewBtn" class="btn small active" type="button">詳細リスト</button>
+                    <button id="setPhotoViewBtn" class="btn small" type="button">写真あり</button>
+                  </div>
+                </div>
+                <div id="setAssetChecks" class="check-grid tall"></div>
+              </label>
+            </div>
+            <div class="button-row"><button id="newSetBtn" class="btn">新規</button><button id="saveSetBtn" class="btn primary">保存</button><button id="deleteSetBtn" class="btn danger ghost">削除</button></div>
+          </div>
+          <div class="panel glass">
+            <div class="panel-head"><h2>セット一覧</h2><span class="chip">Preview</span></div>
+            <p class="hint">セットは持ち出しチェックで上位表示するためのソート用途です。必要なセットを作って、含める機材を選んでください。</p>
+            <div id="setCards" class="cards-list"></div>
+          </div>
+        </div>
+      </section>
+
+
+      <section id="view-categories" class="view">
+        <div class="grid two no-print">
+          <div class="panel glass">
+            <div class="panel-head"><h2>カテゴリを追加</h2><span class="chip save">Structure</span></div>
+            <p class="hint">カテゴリは、機材追加フォーム・機材一覧フィルタ・持ち出し/返却チェックシートの並び順に反映されます。</p>
+            <label>新規カテゴリ名<input id="categoryNameInput" placeholder="例：配信 / 三脚 / ワイヤレス / 電源周り"></label>
+            <button id="addCategoryBtn" class="btn primary full">カテゴリを追加</button>
+          </div>
+          <div class="panel glass">
+            <div class="panel-head"><h2>カテゴリ管理</h2><span class="chip">Order / Rename</span></div>
+            <p class="hint">名称変更すると、既存機材のカテゴリもまとめて変更されます。上下ボタンでチェックシートのカテゴリ表示順を調整できます。</p>
+            <div id="categoryManagerList" class="category-manager-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-rental" class="view">
+        <div class="panel glass no-print">
+          <div class="panel-head"><h2>レンタル価格表・見積書</h2><span class="chip money">Quote</span></div>
+          <p class="hint">チェックした機材だけで見積書を作成します。通常単価は機材マスターのレンタル/日を使用し、単価修正にチェックした場合のみ手入力単価を見積書に反映します。</p>
+          <div class="form-grid compact">
+            <label>宛先 / 会社名<input id="quoteCustomer" placeholder="例：株式会社〇〇 御中"></label>
+            <label>件名<input id="quoteSubject" placeholder="例：CM撮影 機材レンタル見積"></label>
+            <label>発行日<input id="quoteIssueDate" type="date"></label>
+            <label>レンタル日数<input id="estimateDays" type="number" min="1" value="1"></label>
+            <label class="span2">検索<input id="rentalSearch" placeholder="機材名・メーカー・カテゴリで絞り込み"></label>
+            <label class="span2">備考<textarea id="quoteMemo" placeholder="例：搬入・搬出費、消耗品、破損時の扱い等"></textarea></label>
+            <label>発行会社名<input id="quoteCompanyName" placeholder="例：株式会社〇〇"></label>
+            <label>電話番号<input id="quoteCompanyTel" placeholder="例：03-0000-0000"></label>
+            <label>メール<input id="quoteCompanyEmail" placeholder="例：info@example.com"></label>
+            <label>見積有効期限<input id="quoteValidUntil" placeholder="例：発行日より14日間"></label>
+            <label class="span2">会社住所<textarea id="quoteCompanyAddress" placeholder="例：東京都〇〇区..."></textarea></label>
+            <label class="span2">振込先・支払条件<textarea id="quotePaymentInfo" placeholder="例：月末締め翌月末払い / 振込先など"></textarea></label>
+          </div>
+          <div class="button-row">
+            <button id="selectVisibleRentalBtn" class="btn">表示中をすべて選択</button>
+            <button id="clearRentalSelectionBtn" class="btn ghost">選択解除</button>
+            <button id="printRentalListBtn" class="btn">価格表を印刷 / PDF保存</button>
+            <button id="printEstimateBtn" class="btn primary">選択分で見積書を印刷 / PDF保存</button>
+          </div>
+          <div id="estimateBox"></div>
+        </div>
+        <section id="rentalListPrint" class="panel print-area rental-print"></section>
+        <section id="estimatePrint" class="panel print-area estimate-print"></section>
+      </section>
+
+
+      <section id="view-cloud" class="view">
+        <div class="grid two no-print">
+          <div class="panel glass">
+            <div class="panel-head"><h2>ログイン管理</h2><span class="chip save">Auth</span></div>
+            <p class="hint">Firebase Authenticationの「メール/パスワード」を有効にすると、ログインした端末だけクラウド同期できます。</p>
+            <div id="authStatus" class="cloud-status warn">未ログイン</div>
+            <div class="form-grid compact">
+              <label>メールアドレス<input id="authEmail" type="email" autocomplete="username" placeholder="you@example.com"></label>
+              <label>パスワード<input id="authPassword" type="password" autocomplete="current-password" placeholder="Firebaseで登録したパスワード"></label>
+            </div>
+            <div class="button-row">
+              <button id="authLoginBtn" class="btn primary">ログイン</button>
+              <button id="authLogoutBtn" class="btn ghost">ログアウト</button>
+              <button id="authCreateBtn" class="btn">新規ユーザー作成</button>
+            </div>
+            <label class="span2">許可メール一覧（任意・1行に1件）<textarea id="allowedEmailsInput" class="codebox small-log" placeholder="owner@example.com&#10;staff@example.com"></textarea></label>
+            <div class="button-row"><button id="saveAllowedEmailsBtn" class="btn">許可メールを保存</button></div>
+            <p class="hint">より厳密に制限する場合は、Firestoreルール側にも同じメール制限を入れてください。この欄はアプリ側の操作制限です。</p>
+          </div>
+          <div class="panel glass">
+            <div class="panel-head"><h2>クラウド同期</h2><span class="chip save">Firebase</span></div>
+            <p class="hint">Firebaseを設定すると、Windows PC・iPhone・iPadで同じ機材データを同期できます。未設定のままでもローカル保存版として動きます。</p>
+            <div id="cloudSyncStatus" class="cloud-status warn">Firebase未設定：ローカル保存で動作中</div>
+            <label class="check-pill wide"><input id="cloudAutoPushToggle" type="checkbox" checked><span>リアルタイム同期中は、この端末の変更を自動アップロードする</span></label>
+            <div class="button-row">
+              <button id="cloudStartBtn" class="btn primary">リアルタイム同期開始</button>
+              <button id="cloudStopBtn" class="btn ghost">同期停止</button>
+              <button id="cloudPushBtn" class="btn">この端末のデータをアップロード</button>
+              <button id="cloudPullBtn" class="btn danger ghost">クラウドから読み込み</button>
+            </div>
+            <pre id="cloudSyncLog" class="codebox small-log"></pre>
+          </div>
+          <div class="panel glass">
+            <div class="panel-head"><h2>iPhone / iPadで使う流れ</h2><span class="chip">PWA</span></div>
+            <ol class="steps">
+              <li>GitHub Pagesなどでこのフォルダを公開する。</li>
+              <li>Firebase ConsoleでWebアプリを作成する。</li>
+              <li><code>src/firebase-config.js</code> に設定値を貼り付ける。</li>
+              <li>iPhone/iPadのSafariでURLを開く。</li>
+              <li>共有ボタン → ホーム画面に追加。</li>
+            </ol>
+            <p class="hint">最初の同期は、PC側で「この端末のデータをアップロード」→ iPhone側で「クラウドから読み込み」が安全です。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="view-tools" class="view">
+        <div class="grid two no-print">
+          <div class="panel glass">
+            <div class="panel-head"><h2>CSVインポート</h2><span class="chip">Bulk</span></div>
+            <p class="hint">ヘッダー例：id,manufacturer,name,category,quantity,status,newPrice,rentalDay,manualUrl,imageUrl,productUrl,serial,notes,consumable</p>
+            <textarea id="csvImportText" class="codebox" placeholder="id,manufacturer,name,category,quantity,status,newPrice,rentalDay,manualUrl,imageUrl\nCAM001,Sony,FX3,カメラ,1,OK,600000,15000,,"></textarea>
+            <button id="applyCsvBtn" class="btn primary full">CSVを反映</button>
+          </div>
+          <div class="panel glass">
+            <div class="panel-head"><h2>データ操作</h2><span class="chip danger-chip">Careful</span></div>
+            <p class="hint">入力データはこのブラウザに保存されます。大事なタイミングでJSON書き出しをしてください。</p>
+            <button id="resetAllBtn" class="btn danger ghost full">初期サンプルに戻す</button>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script>if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {})); }</script>
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
