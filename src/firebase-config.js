@@ -1,4 +1,4 @@
-// Firebase同期設定
+// Firebase同期設定 v20.2
 // このファイルは「Firebaseの接続情報だけ」を置く場所です。
 // initializeApp() は src/cloud-sync.js 側で実行します。
 export const firebaseConfig = {
